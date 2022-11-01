@@ -126,7 +126,7 @@ const authors = (_get(otherProps, "wp:author") || []).map((a) => {
     lastName: _get(a, ["wp:author_last_name", "__cdata"]),
   };
 });
-const categories = (_get(otherProps, "wp:category") || []).map((a) => {
+const categories = [].map((a) => {
   return {
     id: _get(a, ["wp:term_id"]),
     slug: _get(a, ["wp:category_nicename", "__cdata"]),

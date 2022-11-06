@@ -333,7 +333,11 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
 const allImages = {};
 allUrls.forEach((u) => {
-  const wpUploadBase = site.baseUrl + "/wp-content/uploads/";
+  let wpUploadBase = site.baseUrl + '/wp-content/uploads/';
+
+  if (u.startsWith('http') && !u.startsWith('https')) {
+    wpUploadBase = wpUploadBase.replace('https', 'http');
+  }
   if (
     u.length <= wpUploadBase.length ||
     u.substring(0, wpUploadBase.length) !== wpUploadBase

@@ -26,9 +26,14 @@ const wpAuthors = JSON.parse(
 const wpPosts = JSON.parse(
   fs.readFileSync("./wp-export/posts/post_collection.json", "utf8")
 );
-const wpAttachments = JSON.parse(
-  fs.readFileSync("./wp-export/posts/attachment_collection.json", "utf8")
-);
+let wpAttachments;
+try {
+  wpAttachments = JSON.parse(
+    fs.readFileSync("./wp-export/posts/attachment_collection.json", "utf8")
+  );
+} catch (e) {
+  console.log(e);
+}
 const manifest = JSON.parse(
   fs.readFileSync("./wp-export/uploads/manifest.json", "utf8")
 );
@@ -566,18 +571,20 @@ const uploadMedia = async () => {
     if (!existing) continue;
 
     let hasUpdate = false;
-    const attachments = wpAttachments.filter(
-      (f) => f.parentId === existing.attributes.wp_id
-    );
-    if (attachments && attachments.length > 0) {
-      for (let ai = 0; ai < attachments.length; ai++) {
-        const url = attachments[ai].attachmentUrl;
-        if (url && allMedia[url] && urlToExistingFileMap[url]) {
-          if (existing.feature_image == null) {
-            existing.feature_image = { id: urlToExistingFileMap[url].id };
-            featureImageUpdates++;
-            hasUpdate = true;
-            break;
+    if (wpAttachments) {
+      const attachments = wpAttachments.filter(
+        (f) => f.parentId === existing.attributes.wp_id
+      );
+      if (attachments && attachments.length > 0) {
+        for (let ai = 0; ai < attachments.length; ai++) {
+          const url = attachments[ai].attachmentUrl;
+          if (url && allMedia[url] && urlToExistingFileMap[url]) {
+            if (existing.feature_image == null) {
+              existing.feature_image = { id: urlToExistingFileMap[url].id };
+              featureImageUpdates++;
+              hasUpdate = true;
+              break;
+            }
           }
         }
       }

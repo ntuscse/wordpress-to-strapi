@@ -333,16 +333,6 @@ if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 
 const allImages = {};
 allUrls.forEach((u) => {
-  let wpUploadBase = site.baseUrl + '/wp-content/uploads/';
-
-  if (u.startsWith('http') && !u.startsWith('https')) {
-    wpUploadBase = wpUploadBase.replace('https', 'http');
-  }
-  if (
-    u.length <= wpUploadBase.length ||
-    u.substring(0, wpUploadBase.length) !== wpUploadBase
-  )
-    return;
   if (
     !isImageUrl(u) &&
     !u.includes(".pdf") &&
@@ -353,40 +343,49 @@ allUrls.forEach((u) => {
   )
     return;
 
-  const localImage = u.substring(wpUploadBase.length);
+  const localImage = path.parse(u).base;
   allImages[u] = localImage;
 });
 
-fso(path.join(uploadsDir, "manifest.json"), { allImages, allUrls });
-
 console.log("Downloading images");
 async function downloadImages() {
+  const successPath = path.join(uploadsDir, "success");
+  const failPath = path.join(uploadsDir, 'fail');
+  fs.mkdirSync(successPath, { recursive: true });
+  fs.mkdirSync(failPath, { recursive: true });
+
   for (const imgUrl in allImages) {
     if (allImages.hasOwnProperty(imgUrl)) {
       const localImage = allImages[imgUrl];
-      const localImagePath = path.join(uploadsDir, localImage);
-      if (!fs.existsSync(localImagePath)) {
-        const localImageDir = path.dirname(localImagePath);
+      const localImageSuccessPath = path.join(successPath, localImage);
+      const localImageFailPath = path.join(failPath, localImage);
+      if (
+        !fs.existsSync(localImageSuccessPath) &&
+        !fs.existsSync(localImageFailPath)
+      ) {
         try {
-          fs.mkdirSync(localImageDir, { recursive: true });
           const { filename } = await download.image({
             url: imgUrl,
-            dest: localImagePath,
+            dest: successPath,
           });
           console.log(`  Image downloaded: ${filename}`);
+          allImages[imgUrl] = path.join('success', localImage);
         } catch (e) {
-          console.error(`  Download error: ${e.message}`);
-          if (e.message.indexOf("404") > -1) {
-            const pl = `images/placeholder${path.extname(localImagePath)}`;
-            console.log(
-              `    Copying placeholder from ${pl} to ${localImagePath}`
-            );
-            fs.copyFileSync(pl, localImagePath);
-          }
+          console.log(e.message);
+          const pl = 'images/placeholder.png';
+          console.log(
+            `    Copying placeholder from ${pl} to ${localImageFailPath}.png`
+          );
+          fs.copyFileSync(pl, `${localImageFailPath}.png`);
+          allImages[imgUrl] = path.join('fail', `${localImage}.png`);
         }
       }
     }
   }
   console.log("  Images all downloaded");
 }
-downloadImages();
+
+(async function () {
+  await downloadImages();
+  fso(path.join(uploadsDir, 'manifest.json'), { allImages, allUrls });
+})();

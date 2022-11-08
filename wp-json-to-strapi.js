@@ -534,8 +534,7 @@ const importPosts = async (doUpdates) => {
 };
 
 const uploadMedia = async () => {
-  const existingPosts = (await _axios.get("/api/posts?_limit=-1")).data.data;
-  const existingFiles = (await _axios.get("/api/upload/files?_limit=-1")).data;
+  const existingFiles = (await _axios.get("/api/upload/files")).data;
   const allMedia = manifest.allImages;
   console.log(
     `Attempting to upload ${Object.keys(allMedia).length} media files`
@@ -546,7 +545,7 @@ const uploadMedia = async () => {
   for (const key in allMedia) {
     if (allMedia.hasOwnProperty(key)) {
       const file = path.join("./wp-export/uploads/", allMedia[key]);
-      const fileName = slugify(path.parse(allMedia[key]).name);
+      const fileName = slugify(allMedia[key]).replace(/^(success|fail)/, '');
       let existingFile = existingFiles.find((f) => f.name === fileName);
       if (!existingFile) {
         console.log(`Uploading file ${file}`);
@@ -554,6 +553,7 @@ const uploadMedia = async () => {
         if (existingFile && existingFile.name) existingFiles.push(existingFile);
         uploads++;
       } else {
+        console.log(`${fileName} already exists`);
         exists++;
       }
       urlToExistingFileMap[key] = existingFile;
@@ -563,11 +563,12 @@ const uploadMedia = async () => {
 
   let featureImageUpdates = 0;
   let postUpdates = 0;
+  let imageUpdates = 0;
   for (let wpPostIndex = 0; wpPostIndex < wpPosts.length; wpPostIndex++) {
     const wpPost = wpPosts[wpPostIndex];
-    const existing = existingPosts.find(
-      (t) => t.attributes.wp_id === wpPost.id
-    );
+    const existing = (
+      await _axios.get(`/api/posts?filters[wp_id][$eq]=${wpPost.id}`)
+    ).data.data[0];
     if (!existing) continue;
 
     let hasUpdate = false;
@@ -598,8 +599,10 @@ const uploadMedia = async () => {
           url,
           urlToExistingFileMap[url].url
         );
-        if (previousBody.length !== existing.attributes.body.length)
+        if (previousBody.length !== existing.attributes.body.length) {
           hasUpdate = true;
+          imageUpdates++;
+        }
       }
     }
 
@@ -611,6 +614,7 @@ const uploadMedia = async () => {
   console.log(
     `  ${postUpdates} image updates, of which ${featureImageUpdates} had feature image updates`
   );
+  console.log(`  ${imageUpdates} images url updated in posts`);
 };
 
 const run = async () => {
